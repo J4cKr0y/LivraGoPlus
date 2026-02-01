@@ -11,7 +11,6 @@ expo-env.d.ts
 *.tmp
 *.old
 old/
-*.orig.*
 
 # Logs & Debug
 logs
@@ -29,7 +28,6 @@ yarn-error.*
 # Fichiers d'environnement
 .env
 .env*.local
-*.local
 *.prod
 zenv.json
 
