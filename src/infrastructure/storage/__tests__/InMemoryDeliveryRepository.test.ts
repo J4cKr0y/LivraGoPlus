@@ -1,5 +1,5 @@
 import { InMemoryDeliveryRepository } from '../InMemoryDeliveryRepository';
-import { createDelivery, Delivery } from '../../core/domain/Delivery';
+import { createDelivery, Delivery } from '../../../core/domain/Delivery';
 
 describe('InMemoryDeliveryRepository', () => {
   let repository: InMemoryDeliveryRepository;
