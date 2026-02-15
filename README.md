@@ -1,50 +1,93 @@
-# Welcome to your Expo app 👋
+# 📦 LivraGoPlus
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+LivraGoPlus est une application mobile robuste conçue pour les chauffeurs-livreurs. 
+Elle simplifie la gestion des tournées grâce à l'OCR, l'optimisation de trajet et l'automatisation des notifications clients, le tout avec une approche **Offline-First**.
 
-## Get started
+---
 
-1. Install dependencies
+## 🚀 Vision du Projet
 
-   ```bash
-   npm install
-   ```
+L'objectif est d'offrir un outil fiable qui fonctionne même dans les zones blanches (zones sans réseau) :
 
-2. Start the app
+- **Scan & Go** : Extraction d'adresses et numéros via OCR local.
+- **Optimisation** : Calcul de la trajectoire la plus appropriée.
+- **Proximité Intelligente** : Envoi automatique de SMS à l'approche de la destination.
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🏗️ Architecture & Principes
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Le projet suit une **Architecture Hexagonale (Ports & Adapters)** découpée par **Features**.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- **Core (Domain/Services)** : Contient la logique métier pure, sans dépendance aux frameworks (React Native, Google, etc.).
+- **Infrastructure (Adapters)** : Implémentations concrètes des interfaces (OCR, Storage, Maps). Permet de changer de fournisseur facilement.
+- **Features** : Découpage par domaine fonctionnel (ex: deliveries, tracking).
+- **TDD (Chicago Style)** : Tests portés sur le comportement et l'état final, garantissant une robustesse maximale lors des refactorings.
 
-## Get a fresh project
+---
 
-When you're ready, run:
+## 🛠️ Stack Technique
 
-```bash
-npm run reset-project
+| Technologie | Usage |
+|------------|-------|
+| React Native / Expo | Framework Cross-platform |
+| TypeScript | Typage statique pour la sécurité logicielle |
+| Jest / Testing Library | Tests unitaires et d'intégration (TDD) |
+| React Navigation | Gestion des flux d'écrans |
+| Zustand / TanStack Query | Gestion d'état et cache (prévu) |
+| WatermelonDB | Stockage SQLite performant pour le Offline (prévu) |
+
+---
+
+## 📂 Structure du code
+
+```
+src/
+├── core/               # Le Cœur (Logique métier pure)
+│   ├── domain/         # Entités (Delivery, Address)
+│   ├── interfaces/     # Contrats (IOcrService, IDeliveryRepository)
+│   ├── services/       # Use Cases (DeliveryService)
+│   └── di/             # Injection de dépendances
+├── infrastructure/     # Implémentations techniques (Adapters)
+│   ├── storage/        # SQLite, InMemory
+│   └── ocr/            # MLKit, FakeOCR
+├── features/           # Écrans et composants par fonctionnalité
+│   └── deliveries/     # Gestion des livraisons
+└── navigation/         # Configuration des routes
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## 🛠️ Installation & Tests
 
-To learn more about developing your project with Expo, look at the following resources:
+### 1. Installation des dépendances
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm install
+```
 
-## Join the community
+### 2. Lancer les tests (TDD)
 
-Join our community of developers creating universal apps.
+```bash
+npm test          # Lancer tous les tests
+npm test --watch  # Mode développement
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## 🗺️ Roadmap de développement
+
+- [x] Initialisation de l'architecture Core/Domain.
+- [x] Implémentation du Repository In-Memory & Fake OCR.
+- [x] Mise en place de l'UI de base (Liste des scans).
+- [x] Configuration de React Navigation.
+- [ ] **Prochaine étape** : Intégration de la cartographie (Google Maps/Mapbox).
+- [ ] Implémentation de la persistance SQLite (Offline-First).
+- [ ] Algorithme de tri de tournée.
+- [ ] Module de géolocalisation en arrière-plan.
+
+---
+
+## 📝 Note de développement
+
+Le projet privilégie toujours une implémentation **"Fake"** ou **"In-Memory"** testée avant de passer à l'implémentation native finale.
