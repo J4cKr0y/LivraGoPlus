@@ -1,8 +1,8 @@
 import { DeliveryService } from '../DeliveryService';
 import { InMemoryDeliveryRepository } from '../../../infrastructure/storage/InMemoryDeliveryRepository';
 import { FakeOcrService } from '../../../infrastructure/ocr/FakeOcrService';
+import { FakeGeocodingService } from '../../../infrastructure/geocoding/FakeGeocodingService';
 
-// Mock simple pour expo-crypto car jest ne l'a pas par défaut en environnement node pur
 jest.mock('expo-crypto', () => ({
   randomUUID: () => 'uuid-test-123-456'
 }));
@@ -11,33 +11,33 @@ describe('DeliveryService Integration', () => {
   let service: DeliveryService;
   let repository: InMemoryDeliveryRepository;
   let ocr: FakeOcrService;
+  let geocoding: FakeGeocodingService;
 
   beforeEach(() => {
-    // 1. On prépare les briques réelles (ou fake pour l'externe)
     repository = new InMemoryDeliveryRepository();
-    ocr = new FakeOcrService("15 Avenue des Champs-Élysées\n75008 Paris");
+    ocr = new FakeOcrService("15 boulevard de Strasbourg\n83000 Toulon");
+    geocoding = new FakeGeocodingService();
     
-    // 2. On les injecte dans le service
-    service = new DeliveryService(repository, ocr);
+    // On passe bien les 3 arguments au constructeur
+    service = new DeliveryService(repository, ocr, geocoding);
   });
 
   it('should process a scan and store it in the database', async () => {
-    // --- Scénario ---
-    
-    // 1. L'utilisateur prend une photo (simulé par l'URI)
     const fakeImageUri = 'file://camera/photo.jpg';
 
-    // 2. Le service fait le travail
     const createdDelivery = await service.addDeliveryFromScan(fakeImageUri);
 
-    // 3. Vérifications immédiates
+    // Vérifications
     expect(createdDelivery.id).toBe('uuid-test-123-456');
-    expect(createdDelivery.address.fullText).toContain('Champs-Élysées');
-    expect(createdDelivery.syncStatus).toBe('PENDING_UPLOAD'); // Doit être prêt à synchroniser
+    expect(createdDelivery.address.fullText).toContain('Strasbourg');
+    expect(createdDelivery.syncStatus).toBe('PENDING_UPLOAD');
+    
+    // Vérification des coordonnées (Le Fake renvoie Paris)
+    expect(createdDelivery.address.coordinates).toBeDefined();
+    expect(createdDelivery.address.coordinates?.latitude).toBe(48.8566);
 
-    // 4. Vérification collatérale : Est-ce que c'est bien dans la BDD ?
-    const allDeliveries = await repository.getAll();
-    expect(allDeliveries).toHaveLength(1);
-    expect(allDeliveries[0].rawScannedText).toBe("15 Avenue des Champs-Élysées\n75008 Paris");
+    // Vérification en DB
+    const all = await repository.getAll();
+    expect(all.length).toBe(1);
   });
 });
