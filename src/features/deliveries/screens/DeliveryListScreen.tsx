@@ -3,8 +3,11 @@ import { View, Text, FlatList, Button, StyleSheet, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useServices } from '../../../core/di/ServiceContext';
 import { Delivery } from '../../../core/domain/Delivery';
+import { useNavigation } from '@react-navigation/native'; 
+import { TouchableOpacity } from 'react-native';
 
 export const DeliveryListScreen = () => {
+  const navigation = useNavigation<any>(); // On récupère l'objet navigation
   const { deliveryService } = useServices(); // On récupère notre service injecté
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,13 +49,19 @@ export const DeliveryListScreen = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.emptyText}>Aucune livraison scanée.</Text>}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardAddress}>{item.address.fullText}</Text>
-            <Text style={styles.cardStatus}>Status: {item.status}</Text>
-            <Text style={styles.cardSync}>Sync: {item.syncStatus}</Text>
-          </View>
-        )}
+        
+renderItem={({ item }) => (
+    <TouchableOpacity 
+      onPress={() => navigation.navigate('DeliveryMap', { deliveryId: item.id })}
+      testID={`delivery-item-${item.id}`} // Optionnel, aide pour les tests
+    >
+      <View style={styles.card}>
+        <Text style={styles.cardAddress}>{item.address.fullText}</Text>
+        <Text style={styles.cardStatus}>Status: {item.status}</Text>
+      </View>
+    </TouchableOpacity>
+  )}
+        
       />
 
       <View style={styles.footer}>
