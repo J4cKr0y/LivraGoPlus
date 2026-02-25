@@ -1,15 +1,9 @@
-import { Address, GeoCoordinate } from '../domain/Location';
-
-export interface RouteInfo {
-  distanceMeters: number;
-  durationSeconds: number;
-  geometry: string; // Polyline encodée pour l'affichage map
-}
+import { GeoCoordinate } from '../domain/Location';
 
 export interface IMapService {
-  // Transforme "10 rue de la paix" en {lat, long}
-  geocodeAddress(address: string): Promise<Address | null>;
+  // Ouvre l'application de navigation native (Google Maps / Apple Maps)
+  openExternalNavigation(coords: GeoCoordinate): Promise<void>;
   
-  // Calcule le trajet optimal entre plusieurs points
-  calculateOptimalRoute(origin: GeoCoordinate, destinations: GeoCoordinate[]): Promise<RouteInfo>;
+  // Calcule une distance "à vol d'oiseau" (utile en offline)
+  getAirDistance(from: GeoCoordinate, to: GeoCoordinate): number;
 }

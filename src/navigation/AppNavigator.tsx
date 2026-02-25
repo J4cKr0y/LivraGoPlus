@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { DeliveryListScreen } from '../features/deliveries/screens/DeliveryListScreen';
+import { DeliveryMapScreen } from '../features/deliveries/screens/DeliveryMapScreen';
 
 // 1. Définition des types de routes (utile pour TypeScript)
 export type RootStackParamList = {
@@ -20,7 +21,13 @@ export const AppNavigator = () => {
           component={DeliveryListScreen} 
           options={{ title: 'Mes Livraisons', headerShown: false }} 
         />
-        {/* On ajoutera l'écran Map ici plus tard */}
+
+<Stack.Screen 
+  name="DeliveryMap" 
+  component={DeliveryMapScreen} 
+  options={{ title: 'Carte & Itinéraire' }} 
+/>
+
       </Stack.Navigator>
     </NavigationContainer>
   );

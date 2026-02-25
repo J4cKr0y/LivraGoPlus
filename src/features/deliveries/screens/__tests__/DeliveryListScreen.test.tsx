@@ -3,7 +3,20 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { DeliveryListScreen } from '../DeliveryListScreen';
 import { ServiceProvider } from '../../../../core/di/ServiceContext';
 
-// On enveloppe le composant dans le Provider pour qu'il ait accès aux services
+// 1. MOCK DE NAVIGATION
+const mockedNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => ({
+    navigate: mockedNavigate,
+  }),
+}));
+
+// 2. MOCK DE EXPO-CRYPTO (C'est ce qui manquait !)
+jest.mock('expo-crypto', () => ({
+  randomUUID: () => 'uuid-test-123-456',
+}));
+
 const renderWithServices = (component: React.ReactElement) => {
   return render(
     <ServiceProvider>
@@ -12,22 +25,28 @@ const renderWithServices = (component: React.ReactElement) => {
   );
 };
 
-describe('DeliveryListScreen', () => {
-  it('should display a scanned delivery after pressing the button', async () => {
-    // 1. Render
-    const { getByText, queryByText } = renderWithServices(<DeliveryListScreen />);
+describe('DeliveryListScreen Navigation', () => {
+  // On nettoie les mocks entre chaque test
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
-    // Vérifie qu'au début c'est vide
-    expect(getByText('Aucune livraison scanée.')).toBeTruthy();
+  it('should navigate to DeliveryMap when a delivery card is pressed', async () => {
+    const { getByText, findByText } = renderWithServices(<DeliveryListScreen />);
 
-    // 2. Act : Appuyer sur le bouton Scan
+    // Simuler le scan
     const scanButton = getByText('📷 Scanner une adresse (Simul)');
     fireEvent.press(scanButton);
 
-    // 3. Assert : Attendre que l'adresse (définie dans AppDependencies/FakeOCR) apparaisse
-    await waitFor(() => {
-        // "123 Rue de la République" est le texte par défaut du FakeOcrService dans AppDependencies
-      expect(queryByText(/123 Rue de la République/)).toBeTruthy();
+    // Attendre l'apparition de la carte (l'ID sera maintenant 'uuid-test-123-456')
+    const deliveryCard = await findByText(/123 Rue de la République/);
+
+    // Act
+    fireEvent.press(deliveryCard);
+
+    // Assert
+    expect(mockedNavigate).toHaveBeenCalledWith('DeliveryMap', {
+      deliveryId: 'uuid-test-123-456'
     });
   });
 });
