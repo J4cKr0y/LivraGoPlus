@@ -1,11 +1,13 @@
 import { DeliveryService } from '../services/DeliveryService';
-import { InMemoryDeliveryRepository } from '../../infrastructure/storage/InMemoryDeliveryRepository';
+//import { InMemoryDeliveryRepository } from '../../infrastructure/storage/InMemoryDeliveryRepository';
+import { SQLiteDeliveryRepository } from '../../infrastructure/storage/SQLiteDeliveryRepository';
 import { FakeOcrService } from '../../infrastructure/ocr/FakeOcrService';
 import { FakeMapService } from '../../infrastructure/map/FakeMapService';
 import { FakeGeocodingService } from '../../infrastructure/geocoding/FakeGeocodingService';
 
 export const initDependencies = () => {
-  const repository = new InMemoryDeliveryRepository();
+ // const repository = new InMemoryDeliveryRepository();
+const repository = new SQLiteDeliveryRepository();
   
   const ocrService = new FakeOcrService("123 Avenue de la République\n83000 Toulon");
   
