@@ -3,30 +3,33 @@ import { IDeliveryRepository } from '../interfaces/IDeliveryRepository';
 import { IOcrService } from '../interfaces/IOcrService';
 import * as Crypto from 'expo-crypto'; 
 
+import { IGeocodingService } from '../interfaces/IGeocodingService';
+
 export class DeliveryService {
   constructor(
     private repository: IDeliveryRepository,
-    private ocrService: IOcrService
+    private ocrService: IOcrService,
+    private geocodingService: IGeocodingService, // <-- Nouveau !
   ) {}
 
   /**
    * Scénario principal : Photo -> OCR -> Sauvegarde
    */
   async addDeliveryFromScan(imageUri: string): Promise<Delivery> {
-    // 1. Appel à l'OCR
     const ocrResult = await this.ocrService.extractTextFromImage(imageUri);
-    
-    // 2. Génération ID unique
     const newId = Crypto.randomUUID();
+    
+    // On lance le géocodage
+    const coords = await this.geocodingService.geocode(ocrResult.rawText);
 
-    // 3. Création de l'entité (Logique métier)
-    // Ici, plus tard, on pourra ajouter une logique pour nettoyer le texte
-    // ou extraire automatiquement le numéro de tel si ocrResult.detectedPhoneNumbers > 0
     const newDelivery = createDelivery(newId, ocrResult.rawText);
+    
+    // On met à jour les coordonnées de la livraison
+    if (coords) {
+        newDelivery.address.coordinates = coords; 
+    }
 
-    // 4. Persistance
     await this.repository.save(newDelivery);
-
     return newDelivery;
   }
 
