@@ -32,7 +32,8 @@ yarn-error.*
 zenv.json
 
 # Répertoires d'éditeur
-.vscode/*
+.cursor/
+.vscode/
 !.vscode/extensions.json
 .idea
 setup-structure.bat
