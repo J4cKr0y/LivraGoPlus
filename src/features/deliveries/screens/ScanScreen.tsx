@@ -54,7 +54,7 @@ export const ScanScreen = () => {
           {isProcessing ? (
             <ActivityIndicator size="large" color="#ffffff" />
           ) : (
-            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+            <TouchableOpacity testID="capture-button" style={styles.captureButton} onPress={takePicture}>
               <View style={styles.captureInnerButton} />
             </TouchableOpacity>
           )}

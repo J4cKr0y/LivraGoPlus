@@ -1,12 +1,16 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { DeliveryListScreen } from '../DeliveryListScreen';
 
-// 1. Mock de la navigation
 const mockedNavigate = jest.fn();
+
+// 1. On crée une variable pour stocker la fonction qui se déclenche au 'focus'
+let focusCallback: (() => void) | null = null;
 const mockedAddListener = jest.fn().mockImplementation((event, callback) => {
-  if (event === 'focus') { callback(); } // On simule le focus immédiat
-  return jest.fn(); // unsubscribe function
+  if (event === 'focus') {
+    focusCallback = callback;
+  }
+  return jest.fn(); 
 });
 
 jest.mock('@react-navigation/native', () => ({
@@ -17,7 +21,6 @@ jest.mock('@react-navigation/native', () => ({
   }),
 }));
 
-// 2. Mock du ServiceContext pour contrôler les données affichées
 const mockGetDeliveries = jest.fn();
 jest.mock('../../../../core/di/ServiceContext', () => ({
   useServices: () => ({
@@ -30,23 +33,30 @@ jest.mock('../../../../core/di/ServiceContext', () => ({
 describe('DeliveryListScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    focusCallback = null; // On réinitialise à chaque test
   });
 
   it('should navigate to Scan screen when scan button is pressed', async () => {
-    mockGetDeliveries.mockResolvedValueOnce([]); // Liste vide pour ce test
+    mockGetDeliveries.mockResolvedValueOnce([]); 
     
-    const { getByText, findByText } = render(<DeliveryListScreen />);
+    const { getByText } = render(<DeliveryListScreen />);
 
-    // On attend que le chargement se termine
-    const scanButton = await findByText('📷 Scanner un colis');
+    // 2. On simule l'arrivée sur l'écran proprement dans un "act"
+    await act(async () => {
+      if (focusCallback) await focusCallback();
+    });
+
+    await waitFor(() => {
+        expect(getByText('📷 Scanner un colis')).toBeTruthy();
+    });
     
+    const scanButton = getByText('📷 Scanner un colis');
     fireEvent.press(scanButton);
 
     expect(mockedNavigate).toHaveBeenCalledWith('Scan');
   });
 
   it('should navigate to DeliveryMap when a delivery card is pressed', async () => {
-    // On simule une livraison existante en base
     mockGetDeliveries.mockResolvedValueOnce([
       {
         id: '123-abc',
@@ -55,11 +65,18 @@ describe('DeliveryListScreen', () => {
       }
     ]);
 
-    const { findByText } = render(<DeliveryListScreen />);
+    const { getByText } = render(<DeliveryListScreen />);
 
-    // On attend que la carte s'affiche
-    const deliveryCard = await findByText(/123 Avenue de la République/);
-    
+    // 2. On simule l'arrivée sur l'écran proprement dans un "act"
+    await act(async () => {
+      if (focusCallback) await focusCallback();
+    });
+
+    await waitFor(() => {
+        expect(getByText('123 Avenue de la République')).toBeTruthy();
+    });
+
+    const deliveryCard = getByText('123 Avenue de la République');
     fireEvent.press(deliveryCard);
 
     expect(mockedNavigate).toHaveBeenCalledWith('DeliveryMap', {

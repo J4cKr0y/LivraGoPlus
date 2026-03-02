@@ -20,39 +20,38 @@ jest.mock('../../../../core/di/ServiceContext', () => ({
   })
 }));
 
-// 3. Mock de la Caméra Expo (Pour simuler la prise de photo)
-jest.mock('expo-camera', () => ({
-  // On simule que l'utilisateur a déjà donné la permission
-  useCameraPermissions: () => [{ granted: true }, jest.fn()],
-  // On crée un faux composant caméra qui transmet sa "ref"
-  CameraView: React.forwardRef((props: any, ref: any) => {
-    React.useImperativeHandle(ref, () => ({
-      // C'est cette fonction qui est appelée quand on prend la photo !
-      takePictureAsync: jest.fn().mockResolvedValue({ uri: 'file://fake-photo.jpg' })
-    }));
-    return <>{props.children}</>;
-  })
-}));
+// 3. Mock de la Caméra Expo
+jest.mock('expo-camera', () => {
+  // On "importe" React localement dans le mock
+  const ActualReact = require('react'); 
+
+  return {
+    useCameraPermissions: () => [{ granted: true }, jest.fn()],
+    CameraView: ActualReact.forwardRef((props: any, ref: any) => {
+      ActualReact.useImperativeHandle(ref, () => ({
+        takePictureAsync: jest.fn().mockResolvedValue({ uri: 'file://fake-photo.jpg' })
+      }));
+      return <>{props.children}</>;
+    })
+  };
+});
 
 describe('ScanScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should take a picture, call the delivery service, and go back', async () => {
-    const { getByRole } = render(<ScanScreen />);
+it('should take a picture, call the delivery service, and go back', async () => {
+    // 1. On utilise getByTestId pour trouver notre bouton de façon sûre
+    const { getByTestId } = render(<ScanScreen />);
 
-    // 1. L'utilisateur appuie sur le bouton pour prendre la photo
-    // On cherche le bouton par son rôle implicite (TouchableOpacity)
-    const captureButton = getByRole('button'); 
+    const captureButton = getByTestId('capture-button'); 
     fireEvent.press(captureButton);
 
-    // 2. On vérifie que le service a bien reçu l'URI de la photo générée par le mock
     await waitFor(() => {
       expect(mockAddDeliveryFromScan).toHaveBeenCalledWith('file://fake-photo.jpg');
     });
 
-    // 3. On vérifie qu'après la sauvegarde, on retourne à la liste
     expect(mockedGoBack).toHaveBeenCalled();
   });
 });
