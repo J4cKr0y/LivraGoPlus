@@ -2,10 +2,11 @@ import { DeliveryService } from '../services/DeliveryService';
 //import { InMemoryDeliveryRepository } from '../../infrastructure/storage/InMemoryDeliveryRepository';
 import { SQLiteDeliveryRepository } from '../../infrastructure/storage/SQLiteDeliveryRepository';
 //import { FakeOcrService } from '../../infrastructure/ocr/FakeOcrService';
-import { FakeMapService } from '../../infrastructure/map/FakeMapService';
+//import { FakeMapService } from '../../infrastructure/map/FakeMapService';
 //import { FakeGeocodingService } from '../../infrastructure/geocoding/FakeGeocodingService';
 import { ExpoGeocodingService } from '../../infrastructure/geocoding/ExpoGeocodingService';
 import { MlKitOcrService } from '../../infrastructure/ocr/MlKitOcrService';
+import { ReactNativeMapService } from '../../infrastructure/map/ReactNativeMapService';
 
 
 export const initDependencies = () => {
@@ -16,7 +17,8 @@ const repository = new SQLiteDeliveryRepository();
  
 const ocrService = new MlKitOcrService();
   
-  const mapService = new FakeMapService();
+//  const mapService = new FakeMapService();
+const mapService = new ReactNativeMapService();
 const geocodingService = new ExpoGeocodingService();
   
   const deliveryService = new DeliveryService(repository, ocrService, geocodingService);
