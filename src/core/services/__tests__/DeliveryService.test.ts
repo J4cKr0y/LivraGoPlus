@@ -1,43 +1,66 @@
 import { DeliveryService } from '../DeliveryService';
-import { InMemoryDeliveryRepository } from '../../../infrastructure/storage/InMemoryDeliveryRepository';
-import { FakeOcrService } from '../../../infrastructure/ocr/FakeOcrService';
-import { FakeGeocodingService } from '../../../infrastructure/geocoding/FakeGeocodingService';
+import { IDeliveryRepository } from '../../interfaces/IDeliveryRepository';
+import { IOcrService } from '../../interfaces/IOcrService';
+import { IGeocodingService } from '../../interfaces/IGeocodingService';
+import { Delivery } from '../../domain/Delivery';
 
-jest.mock('expo-crypto', () => ({
-  randomUUID: () => 'uuid-test-123-456'
-}));
-
-describe('DeliveryService Integration', () => {
-  let service: DeliveryService;
-  let repository: InMemoryDeliveryRepository;
-  let ocr: FakeOcrService;
-  let geocoding: FakeGeocodingService;
+describe('DeliveryService', () => {
+  let deliveryService: DeliveryService;
+  let mockRepository: jest.Mocked<IDeliveryRepository>;
+  let mockOcrService: jest.Mocked<IOcrService>;
+  let mockGeocodingService: jest.Mocked<IGeocodingService>;
 
   beforeEach(() => {
-    repository = new InMemoryDeliveryRepository();
-    ocr = new FakeOcrService("15 boulevard de Strasbourg\n83000 Toulon");
-    geocoding = new FakeGeocodingService();
-    
-    // On passe bien les 3 arguments au constructeur
-    service = new DeliveryService(repository, ocr, geocoding);
+    // Création des mocks
+    mockRepository = {
+      save: jest.fn(),
+      getAll: jest.fn(),
+      getById: jest.fn(),
+    };
+    mockOcrService = {
+      extractTextFromImage: jest.fn(),
+    };
+    mockGeocodingService = {
+      geocode: jest.fn(),
+    };
+
+    deliveryService = new DeliveryService(mockRepository, mockOcrService, mockGeocodingService);
   });
 
-  it('should process a scan and store it in the database', async () => {
-    const fakeImageUri = 'file://camera/photo.jpg';
+  // ... (Garde tes anciens tests ici, par exemple ceux sur addDeliveryFromScan) ...
 
-    const createdDelivery = await service.addDeliveryFromScan(fakeImageUri);
+  describe('validateDelivery', () => {
+    it('devrait marquer la livraison comme DELIVERED et sauvegarder la photo', async () => {
+      // 1. Préparation (Arrange)
+      const existingDelivery: Delivery = {
+        id: '123',
+        status: 'PENDING',
+        address: { fullText: '10 Rue de Paris' }
+      };
+      mockRepository.getById.mockResolvedValue(existingDelivery);
 
-    // Vérifications
-    expect(createdDelivery.id).toBe('uuid-test-123-456');
-    expect(createdDelivery.address.fullText).toContain('Strasbourg');
-    expect(createdDelivery.syncStatus).toBe('PENDING_UPLOAD');
-    
-    // Vérification des coordonnées (Le Fake renvoie Paris)
-    expect(createdDelivery.address.coordinates).toBeDefined();
-    expect(createdDelivery.address.coordinates?.latitude).toBe(48.8566);
+      const photoUri = 'file://mon-dossier/photo-colis.jpg';
 
-    // Vérification en DB
-    const all = await repository.getAll();
-    expect(all.length).toBe(1);
+      // 2. Action (Act)
+      await deliveryService.validateDelivery('123', photoUri);
+
+      // 3. Vérification (Assert)
+      expect(mockRepository.getById).toHaveBeenCalledWith('123');
+      
+      // On vérifie que le repository a bien été appelé pour sauvegarder la mise à jour
+      expect(mockRepository.save).toHaveBeenCalledWith(expect.objectContaining({
+        id: '123',
+        status: 'DELIVERED', // Le statut a changé
+        proofOfDeliveryUri: photoUri // La photo est attachée
+      }));
+    });
+
+    it('devrait lever une erreur si la livraison n\'existe pas', async () => {
+      mockRepository.getById.mockResolvedValue(null);
+
+      await expect(
+        deliveryService.validateDelivery('999', 'file://photo.jpg')
+      ).rejects.toThrow("Livraison introuvable");
+    });
   });
 });

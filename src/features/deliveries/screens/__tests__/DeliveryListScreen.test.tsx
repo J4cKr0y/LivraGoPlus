@@ -47,10 +47,10 @@ describe('DeliveryListScreen', () => {
     });
 
     await waitFor(() => {
-        expect(getByText('📷 Scanner un colis')).toBeTruthy();
+        expect(getByText(/📷 SCANNER UN COLIS/i)).toBeTruthy();
     });
     
-    const scanButton = getByText('📷 Scanner un colis');
+    const scanButton = getByText(/📷 SCANNER UN COLIS/i);
     fireEvent.press(scanButton);
 
     expect(mockedNavigate).toHaveBeenCalledWith('Scan');

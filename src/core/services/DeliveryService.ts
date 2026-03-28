@@ -9,7 +9,7 @@ export class DeliveryService {
   constructor(
     private repository: IDeliveryRepository,
     private ocrService: IOcrService,
-    private geocodingService: IGeocodingService, // <-- Nouveau !
+    private geocodingService: IGeocodingService, 
   ) {}
 
   /**
@@ -38,5 +38,17 @@ export class DeliveryService {
    */
   async getDeliveries(): Promise<Delivery[]> {
     return this.repository.getAll();
+  }
+
+async validateDelivery(deliveryId: string, photoUri: string): Promise<void> {
+    const delivery = await this.repository.getById(deliveryId);
+    if (!delivery) throw new Error("Livraison introuvable");
+
+    // Mise à jour de l'état et ajout de la photo
+    delivery.status = 'DELIVERED';
+    delivery.proofOfDeliveryUri = photoUri;
+
+    // Sauvegarde en base de données
+    await this.repository.save(delivery);
   }
 }

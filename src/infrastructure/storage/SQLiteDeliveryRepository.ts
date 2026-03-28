@@ -6,21 +6,19 @@ export class SQLiteDeliveryRepository implements IDeliveryRepository {
   private db: SQLite.SQLiteDatabase;
 
   constructor() {
-    // On ouvre la base de données (elle sera créée si elle n'existe pas)
     this.db = SQLite.openDatabaseSync('livragoplus.db');
     this.init();
   }
 
   private init() {
-    // Création de la table si nécessaire
     this.db.execSync(`
       CREATE TABLE IF NOT EXISTS deliveries (
         id TEXT PRIMARY KEY NOT NULL,
-        fullText TEXT,
-        status TEXT,
-        syncStatus TEXT,
+        fullAddress TEXT,
         latitude REAL,
         longitude REAL,
+        status TEXT,
+        proofOfDeliveryUri TEXT,
         createdAt TEXT
       );
     `);
@@ -28,15 +26,14 @@ export class SQLiteDeliveryRepository implements IDeliveryRepository {
 
   async save(delivery: Delivery): Promise<void> {
     await this.db.runAsync(
-      `INSERT OR REPLACE INTO deliveries (id, fullText, status, syncStatus, latitude, longitude, createdAt) 
-       VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      'INSERT OR REPLACE INTO deliveries (id, fullAddress, latitude, longitude, status, proofOfDeliveryUri, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
         delivery.id,
         delivery.address.fullText,
-        delivery.status,
-        delivery.syncStatus,
         delivery.address.coordinates?.latitude || null,
         delivery.address.coordinates?.longitude || null,
+        delivery.status,
+        delivery.proofOfDeliveryUri || null,
         new Date().toISOString()
       ]
     );
@@ -44,16 +41,30 @@ export class SQLiteDeliveryRepository implements IDeliveryRepository {
 
   async getAll(): Promise<Delivery[]> {
     const rows = await this.db.getAllAsync<any>('SELECT * FROM deliveries ORDER BY createdAt DESC');
-    
-    // On re-transforme les lignes SQL en objets du Domaine "Delivery"
     return rows.map(row => ({
       id: row.id,
       status: row.status,
-      syncStatus: row.syncStatus,
       address: {
-        fullText: row.fullText,
+        fullText: row.fullAddress,
         coordinates: row.latitude ? { latitude: row.latitude, longitude: row.longitude } : undefined
-      }
+      },
+      proofOfDeliveryUri: row.proofOfDeliveryUri
     }));
   }
-}
+
+  // ✅ Cette méthode doit être AVANT le dernier "}" de la classe
+  async getById(id: string): Promise<Delivery | null> {
+    const row = await this.db.getFirstAsync<any>('SELECT * FROM deliveries WHERE id = ?', [id]);
+    if (!row) return null;
+    
+    return {
+      id: row.id,
+      status: row.status,
+      address: {
+        fullText: row.fullAddress,
+        coordinates: row.latitude ? { latitude: row.latitude, longitude: row.longitude } : undefined
+      },
+      proofOfDeliveryUri: row.proofOfDeliveryUri
+    };
+  }
+} // <--- Un seul et unique "}" ici pour fermer la classe
