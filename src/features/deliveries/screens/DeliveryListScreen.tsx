@@ -1,137 +1,190 @@
-// src/features/deliveries/screens/DeliveryListScreen.tsx
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect } from 'react';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  FlatList, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert 
+} from 'react-native';
+import * as Location from 'expo-location';
 import { useServices } from '../../../core/di/ServiceContext';
-import { Delivery } from '../../../core/domain/Delivery';
-import { useNavigation } from '@react-navigation/native';
+import { Delivery } from '../../deliveries/domain/Delivery';
 
-// Sous-composant pour l'affichage UX optimisé
-const DeliveryCard = ({ item, onPress }: { item: Delivery, onPress: () => void }) => (
-  <TouchableOpacity 
-    style={styles.card} 
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <View style={styles.cardContent}>
-      <View style={[styles.statusBadge, item.status === 'DELIVERED' && styles.statusBadgeSuccess]}>
-        <Text style={styles.statusText}>{item.status === 'PENDING' ? '⏳ À LIVRER' : '✅ LIVRÉ'}</Text>
-      </View>
-      <Text style={styles.addressText} numberOfLines={2}>
-        {item.address.fullText}
-      </Text>
-    </View>
-    <View style={styles.arrowContainer}>
-      <Text style={styles.arrow}>〉</Text>
-    </View>
-  </TouchableOpacity>
-);
-
-// Composant Principal Exporté
-export const DeliveryListScreen = () => {
-  const navigation = useNavigation<any>();
-  const { deliveryService } = useServices();
+export const DeliveryListScreen = ({ navigation }: any) => {
+  // On récupère le deliveryService ET le routeOptimizer
+  const { deliveryService, routeOptimizer } = useServices(); 
+  
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOptimizing, setIsOptimizing] = useState(false); // État pour le bouton
 
-  const loadData = async () => {
-    setLoading(true);
+  // Chargement initial des livraisons
+  useEffect(() => {
+    loadDeliveries();
+  }, []);
+
+  const loadDeliveries = async () => {
+    setIsLoading(true);
+    const data = await deliveryService.getDeliveries();
+    setDeliveries(data);
+    setIsLoading(false);
+  };
+
+  // --- NOUVELLE FONCTION : OPTIMISATION ---
+  const handleOptimizeRoute = async () => {
+    if (deliveries.length === 0) return;
+
+    setIsOptimizing(true);
     try {
-      const data = await deliveryService.getDeliveries();
-      setDeliveries(data);
-    } catch (e) {
-      console.error(e);
+      // 1. Demander/Vérifier la permission GPS
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Permission requise", "Activez le GPS pour optimiser votre tournée.");
+        setIsOptimizing(false);
+        return;
+      }
+
+      // 2. Récupérer la position actuelle du livreur
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced // 'Balanced' est assez rapide et précis
+      });
+      
+      const currentPos = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      };
+
+      // 3. Demander au moteur de trier la liste
+      const optimizedList = await routeOptimizer.optimizeTour(currentPos, deliveries);
+
+      // 4. Mettre à jour l'affichage
+      setDeliveries(optimizedList);
+
+    } catch (error) {
+      console.error("Erreur d'optimisation :", error);
+      Alert.alert("Erreur", "Impossible de calculer la tournée optimale.");
     } finally {
-      setLoading(false);
+      setIsOptimizing(false);
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadData();
-    });
-    return unsubscribe;
-  }, [navigation]);
+  // Rendu d'une carte de livraison simple
+  const renderItem = ({ item, index }: { item: Delivery, index: number }) => (
+    <TouchableOpacity 
+      style={styles.card}
+      onPress={() => navigation.navigate('DeliveryMap', { id: item.id })}
+    >
+      <View style={styles.badgeContainer}>
+        <Text style={styles.badgeText}>{index + 1}</Text>
+      </View>
+      <View style={styles.cardContent}>
+        <Text style={styles.addressText}>{item.address.fullText}</Text>
+        <Text style={styles.statusText}>{item.status}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  if (isLoading) {
+    return <View style={styles.centered}><ActivityIndicator size="large" color="#FF8C00" /></View>;
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      {/* --- NOUVEAU BOUTON D'OPTIMISATION --- */}
       <View style={styles.header}>
-        <Text style={styles.title}>Mes Tournées</Text>
+        <TouchableOpacity 
+          style={[styles.optimizeButton, isOptimizing && styles.optimizeButtonDisabled]} 
+          onPress={handleOptimizeRoute}
+          disabled={isOptimizing}
+        >
+          {isOptimizing ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={styles.optimizeButtonText}>📍 OPTIMISER MA TOURNÉE</Text>
+          )}
+        </TouchableOpacity>
       </View>
 
       <FlatList
         data={deliveries}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          !loading ? <Text style={styles.emptyText}>Aucune livraison en cours.</Text> : null
-        }
-        renderItem={({ item }) => (
-          <DeliveryCard 
-            item={item} 
-            onPress={() => navigation.navigate('DeliveryMap', { deliveryId: item.id })}
-          />
-        )}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={<Text style={styles.emptyText}>Aucune livraison en cours.</Text>}
       />
 
-      <View style={styles.footer}>
-        {loading ? (
-          <ActivityIndicator size="large" color="#FF8C00" />
-        ) : (
-          <TouchableOpacity style={styles.scanButton} onPress={() => navigation.navigate('Scan')}>
-            <Text style={styles.scanButtonText}>📷 SCANNER UN COLIS</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </SafeAreaView>
+      {/* Ton bouton flottant pour le Scan est toujours là */}
+      <TouchableOpacity 
+        style={styles.fab}
+        onPress={() => navigation.navigate('Scan')}
+      >
+        <Text style={styles.fabIcon}>+</Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 
-// Styles
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F2' },
-  header: { padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1A1A1A' },
-  listContent: { padding: 16 },
-  emptyText: { textAlign: 'center', marginTop: 50, color: '#888' },
+  container: { flex: 1, backgroundColor: '#F4F6F8' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { padding: 15, backgroundColor: '#FFF', elevation: 2, zIndex: 1 },
   
-  // Design de la carte "Pouce engourdi"
-  card: {
-    backgroundColor: '#FFFFFF',
-    marginBottom: 12,
-    borderRadius: 12,
+  // Styles du bouton d'optimisation
+  optimizeButton: {
+    backgroundColor: '#1D3557',
+    padding: 15,
+    borderRadius: 8,
     flexDirection: 'row',
-    minHeight: 100,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-  },
-  cardContent: { flex: 1, padding: 16, justifyContent: 'center' },
-  statusBadge: {
-    backgroundColor: '#FF8C00', // Orange
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  statusBadgeSuccess: {
-    backgroundColor: '#2E7D32', // Vert
-  },
-  statusText: { color: '#FFF', fontWeight: 'bold', fontSize: 12 },
-  addressText: { fontSize: 18, fontWeight: 'bold', color: '#1A1A1A' },
-  arrowContainer: { justifyContent: 'center', paddingRight: 16 },
-  arrow: { fontSize: 24, color: '#CCC' },
-  
-  // Bouton de scan Footer
-  footer: { padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#eee' },
-  scanButton: {
-    backgroundColor: '#FF8C00',
-    height: 70,
-    borderRadius: 35,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scanButtonText: { color: '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
+  optimizeButtonDisabled: { backgroundColor: '#A8B2C1' },
+  optimizeButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
+
+  listContainer: { padding: 15, paddingBottom: 100 },
+  card: {
+    backgroundColor: '#FFF',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  badgeContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FF8C00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  badgeText: { color: '#FFF', fontWeight: 'bold' },
+  cardContent: { flex: 1 },
+  addressText: { fontSize: 16, fontWeight: '600', color: '#333' },
+  statusText: { fontSize: 12, color: '#888', marginTop: 4 },
+  emptyText: { textAlign: 'center', color: '#888', marginTop: 40 },
+  
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF8C00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  fabIcon: { color: '#FFF', fontSize: 30, fontWeight: 'bold' }
 });
