@@ -7,6 +7,9 @@ import { SQLiteDeliveryRepository } from '../../infrastructure/storage/SQLiteDel
 import { ExpoGeocodingService } from '../../infrastructure/geocoding/ExpoGeocodingService';
 import { MlKitOcrService } from '../../infrastructure/ocr/MlKitOcrService';
 import { ReactNativeMapService } from '../../infrastructure/map/ReactNativeMapService';
+import { HaversineDistanceProvider } from '../routing/DistanceProvider';
+import { OsrmDistanceProvider } from '../routing/OsrmDistanceProvider';
+import { RouteOptimizer } from '../routing/RouteOptimizer';
 
 
 export const initDependencies = () => {
@@ -22,10 +25,20 @@ const mapService = new ReactNativeMapService();
 const geocodingService = new ExpoGeocodingService();
   
   const deliveryService = new DeliveryService(repository, ocrService, geocodingService);
+  
+  // 1. On instancie le calculateur "Vol d'oiseau"
+  const haversineProvider = new HaversineDistanceProvider();
+  
+  // 2. On instancie OSRM en lui donnant Haversine comme parachute de secours
+  const osrmProvider = new OsrmDistanceProvider(haversineProvider);
+  
+  // 3. On donne le provider global au moteur d'optimisation
+  const routeOptimizer = new RouteOptimizer(osrmProvider);
 
   return {
     deliveryService,
     mapService,
+    routeOptimizer,
   };
 };
   
