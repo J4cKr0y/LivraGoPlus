@@ -70,19 +70,30 @@ export const DeliveryListScreen = ({ navigation }: any) => {
     }
   };
 
-  // Rendu d'une carte de livraison simple
+  // Rendu d'une carte de livraison
   const renderItem = ({ item, index }: { item: Delivery, index: number }) => (
     <TouchableOpacity 
       style={styles.card}
-      onPress={() => navigation.navigate('DeliveryMap', { id: item.id })}
+      // Le clic sur la carte principale mène à l'écran de Validation (Photo/Signature)
+      onPress={() => navigation.navigate('DeliveryDetail', { deliveryId: item.id })}
     >
       <View style={styles.badgeContainer}>
         <Text style={styles.badgeText}>{index + 1}</Text>
       </View>
+      
       <View style={styles.cardContent}>
         <Text style={styles.addressText}>{item.address.fullText}</Text>
         <Text style={styles.statusText}>{item.status}</Text>
       </View>
+
+      {/* --- NOUVEAU : LE BOUTON D'ACCÈS DIRECT AU GPS --- */}
+      <TouchableOpacity 
+        style={styles.mapIconButton}
+        onPress={() => navigation.navigate('DeliveryMap', { id: item.id })}
+      >
+        <Text style={styles.mapIconText}>🗺️</Text>
+      </TouchableOpacity>
+      
     </TouchableOpacity>
   );
 
@@ -169,6 +180,20 @@ const styles = StyleSheet.create({
   cardContent: { flex: 1 },
   addressText: { fontSize: 16, fontWeight: '600', color: '#333' },
   statusText: { fontSize: 12, color: '#888', marginTop: 4 },
+  
+  // --- NOUVEAUX STYLES POUR L'ICÔNE ---
+  mapIconButton: {
+    padding: 10,
+    backgroundColor: '#E8EDF2',
+    borderRadius: 8,
+    marginLeft: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapIconText: { 
+    fontSize: 20 
+  },
+
   emptyText: { textAlign: 'center', color: '#888', marginTop: 40 },
   
   fab: {
