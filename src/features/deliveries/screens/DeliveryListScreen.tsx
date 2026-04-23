@@ -12,33 +12,30 @@ import * as Location from 'expo-location';
 import { useServices } from '../../../core/di/ServiceContext';
 import { Delivery } from '../../deliveries/domain/Delivery';
 
+// --- ZUSTAND ---
+import { useDeliveryStore } from '../store/useDeliveryStore';
+
 export const DeliveryListScreen = ({ navigation }: any) => {
-  // On récupère le deliveryService ET le routeOptimizer
   const { deliveryService, routeOptimizer } = useServices(); 
   
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isOptimizing, setIsOptimizing] = useState(false); // État pour le bouton
+  // --- STORE ZUSTAND ---
+  const { deliveries, isLoading, fetchDeliveries, setOptimizedDeliveries } = useDeliveryStore();
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
-  // Chargement initial des livraisons
+  // On ne garde que les livraisons non effectuées
+  const activeDeliveries = deliveries.filter(d => d.status !== 'DELIVERED');
+
+  // Chargement initial UNIQUE
   useEffect(() => {
-    loadDeliveries();
+    fetchDeliveries(deliveryService);
   }, []);
 
-  const loadDeliveries = async () => {
-    setIsLoading(true);
-    const data = await deliveryService.getDeliveries();
-    setDeliveries(data);
-    setIsLoading(false);
-  };
-
-  // --- NOUVELLE FONCTION : OPTIMISATION ---
+  // --- OPTIMISATION DE TOURNÉE ---
   const handleOptimizeRoute = async () => {
-    if (deliveries.length === 0) return;
+    if (activeDeliveries.length === 0) return;
 
     setIsOptimizing(true);
     try {
-      // 1. Demander/Vérifier la permission GPS
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert("Permission requise", "Activez le GPS pour optimiser votre tournée.");
@@ -46,9 +43,8 @@ export const DeliveryListScreen = ({ navigation }: any) => {
         return;
       }
 
-      // 2. Récupérer la position actuelle du livreur
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced // 'Balanced' est assez rapide et précis
+        accuracy: Location.Accuracy.Balanced
       });
       
       const currentPos = {
@@ -56,11 +52,10 @@ export const DeliveryListScreen = ({ navigation }: any) => {
         longitude: location.coords.longitude
       };
 
-      // 3. Demander au moteur de trier la liste
-      const optimizedList = await routeOptimizer.optimizeTour(currentPos, deliveries);
+      const optimizedList = await routeOptimizer.optimizeTour(currentPos, activeDeliveries);
 
-      // 4. Mettre à jour l'affichage
-      setDeliveries(optimizedList);
+      // --- Mise à jour propre via Zustand ---
+      setOptimizedDeliveries(optimizedList);
 
     } catch (error) {
       console.error("Erreur d'optimisation :", error);
@@ -70,11 +65,10 @@ export const DeliveryListScreen = ({ navigation }: any) => {
     }
   };
 
-  // Rendu d'une carte de livraison
+  // --- Rendu d'une carte ---
   const renderItem = ({ item, index }: { item: Delivery, index: number }) => (
     <TouchableOpacity 
       style={styles.card}
-      // Le clic sur la carte principale mène à l'écran de Validation (Photo/Signature)
       onPress={() => navigation.navigate('DeliveryDetail', { deliveryId: item.id })}
     >
       <View style={styles.badgeContainer}>
@@ -86,24 +80,25 @@ export const DeliveryListScreen = ({ navigation }: any) => {
         <Text style={styles.statusText}>{item.status}</Text>
       </View>
 
-      {/* --- NOUVEAU : LE BOUTON D'ACCÈS DIRECT AU GPS --- */}
       <TouchableOpacity 
         style={styles.mapIconButton}
         onPress={() => navigation.navigate('DeliveryMap', { id: item.id })}
       >
         <Text style={styles.mapIconText}>🗺️</Text>
       </TouchableOpacity>
-      
     </TouchableOpacity>
   );
 
   if (isLoading) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color="#FF8C00" /></View>;
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#FF8C00" />
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
-      {/* --- NOUVEAU BOUTON D'OPTIMISATION --- */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={[styles.optimizeButton, isOptimizing && styles.optimizeButtonDisabled]} 
@@ -119,14 +114,13 @@ export const DeliveryListScreen = ({ navigation }: any) => {
       </View>
 
       <FlatList
-        data={deliveries}
+        data={activeDeliveries}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={<Text style={styles.emptyText}>Aucune livraison en cours.</Text>}
       />
 
-      {/* Ton bouton flottant pour le Scan est toujours là */}
       <TouchableOpacity 
         style={styles.fab}
         onPress={() => navigation.navigate('Scan')}
@@ -141,8 +135,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F6F8' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { padding: 15, backgroundColor: '#FFF', elevation: 2, zIndex: 1 },
-  
-  // Styles du bouton d'optimisation
+
   optimizeButton: {
     backgroundColor: '#1D3557',
     padding: 15,
@@ -180,8 +173,7 @@ const styles = StyleSheet.create({
   cardContent: { flex: 1 },
   addressText: { fontSize: 16, fontWeight: '600', color: '#333' },
   statusText: { fontSize: 12, color: '#888', marginTop: 4 },
-  
-  // --- NOUVEAUX STYLES POUR L'ICÔNE ---
+
   mapIconButton: {
     padding: 10,
     backgroundColor: '#E8EDF2',
@@ -190,12 +182,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mapIconText: { 
-    fontSize: 20 
-  },
+  mapIconText: { fontSize: 20 },
 
   emptyText: { textAlign: 'center', color: '#888', marginTop: 40 },
-  
+
   fab: {
     position: 'absolute',
     bottom: 30,
