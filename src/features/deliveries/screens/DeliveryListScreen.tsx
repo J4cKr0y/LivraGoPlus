@@ -1,3 +1,5 @@
+// src/features/deliveries/screensDeliveryListScreen.tsx
+
 import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
@@ -11,6 +13,7 @@ import {
 import * as Location from 'expo-location';
 import { useServices } from '../../../core/di/ServiceContext';
 import { Delivery } from '../../deliveries/domain/Delivery';
+import { calculateTotalRouteDistance } from '../../../core/utils/distanceUtils';
 
 // --- ZUSTAND ---
 import { useDeliveryStore } from '../store/useDeliveryStore';
@@ -19,7 +22,7 @@ export const DeliveryListScreen = ({ navigation }: any) => {
   const { deliveryService, routeOptimizer } = useServices(); 
   
   // --- STORE ZUSTAND ---
-  const { deliveries, isLoading, fetchDeliveries, setOptimizedDeliveries } = useDeliveryStore();
+  const { deliveries, isLoading, fetchDeliveries, setOptimizedDeliveries, stats } = useDeliveryStore();
   const [isOptimizing, setIsOptimizing] = useState(false);
 
   // On ne garde que les livraisons non effectuées
@@ -38,28 +41,32 @@ export const DeliveryListScreen = ({ navigation }: any) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert("Permission requise", "Activez le GPS pour optimiser votre tournée.");
+        Alert.alert("Permission", "Activez le GPS.");
         setIsOptimizing(false);
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced
-      });
-      
-      const currentPos = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
-      };
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const currentPos = { latitude: location.coords.latitude, longitude: location.coords.longitude };
 
+      // 1. Calcul de la distance AVANT optimisation
+      const distanceBefore = calculateTotalRouteDistance(currentPos, activeDeliveries);
+
+      // 2. On optimise
       const optimizedList = await routeOptimizer.optimizeTour(currentPos, activeDeliveries);
 
-      // --- Mise à jour propre via Zustand ---
-      setOptimizedDeliveries(optimizedList);
+      // 3. Calcul de la distance APRÈS optimisation
+      const distanceAfter = calculateTotalRouteDistance(currentPos, optimizedList);
+
+      // 4. On calcule le gain (si c'est négatif, on met 0)
+      const gain = Math.max(0, distanceBefore - distanceAfter);
+
+      // 5. On envoie au Store avec un arrondi à 1 décimale
+      setOptimizedDeliveries(optimizedList, Math.round(gain * 10) / 10);
 
     } catch (error) {
-      console.error("Erreur d'optimisation :", error);
-      Alert.alert("Erreur", "Impossible de calculer la tournée optimale.");
+      console.error(error);
+      Alert.alert("Erreur", "Optimisation impossible.");
     } finally {
       setIsOptimizing(false);
     }
@@ -111,6 +118,29 @@ export const DeliveryListScreen = ({ navigation }: any) => {
             <Text style={styles.optimizeButtonText}>📍 OPTIMISER MA TOURNÉE</Text>
           )}
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={[styles.optimizeButton, isOptimizing && styles.optimizeButtonDisabled]} 
+          onPress={handleOptimizeRoute}
+          disabled={isOptimizing}
+        >
+          {isOptimizing ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={styles.optimizeButtonText}>📍 OPTIMISER MA TOURNÉE</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* --- LE PETIT ENCART DE STATS --- */}
+        {stats.savedKm > 0 && (
+          <View style={styles.statsBanner}>
+            <Text style={styles.statsText}>
+              🌿 Optimisation réussie : {stats.savedKm} km économisés !
+            </Text>
+          </View>
+        )}
       </View>
 
       <FlatList
@@ -201,5 +231,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
   },
-  fabIcon: { color: '#FFF', fontSize: 30, fontWeight: 'bold' }
+  fabIcon: { color: '#FFF', fontSize: 30, fontWeight: 'bold' },
+  statsBanner: {
+    marginTop: 10,
+    backgroundColor: '#E8F5E9', // Vert clair
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  statsText: {
+    color: '#2E7D32',
+    fontWeight: 'bold',
+    fontSize: 14,
+  }
 });
