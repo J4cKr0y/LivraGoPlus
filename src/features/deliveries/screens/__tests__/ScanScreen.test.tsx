@@ -11,11 +11,14 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 // 2. Mock du Service Métier (On veut vérifier qu'on lui envoie bien l'image)
-const mockAddDeliveryFromScan = jest.fn();
+const mockExtractAddressTextFromImage = jest.fn().mockResolvedValue('123 Rue de la Paix');
+const mockSaveTypedAddress = jest.fn().mockResolvedValue(true);
+
 jest.mock('../../../../core/di/ServiceContext', () => ({
   useServices: () => ({
     deliveryService: {
-      addDeliveryFromScan: mockAddDeliveryFromScan,
+      extractAddressTextFromImage: mockExtractAddressTextFromImage,
+      saveTypedAddress: mockSaveTypedAddress,
     }
   })
 }));
@@ -49,7 +52,10 @@ it('should take a picture, call the delivery service, and go back', async () => 
     fireEvent.press(captureButton);
 
     await waitFor(() => {
-      expect(mockAddDeliveryFromScan).toHaveBeenCalledWith('file://fake-photo.jpg');
+      // On vérifie que la méthode d'extraction a bien été appelée avec la photo
+      expect(mockExtractAddressTextFromImage).toHaveBeenCalledWith('file://fake-photo.jpg');
+      // On vérifie que la sauvegarde a bien été appelée avec le texte extrait
+      expect(mockSaveTypedAddress).toHaveBeenCalledWith('123 Rue de la Paix');
     });
 
     expect(mockedGoBack).toHaveBeenCalled();

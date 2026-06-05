@@ -11,6 +11,7 @@ export const saveDelivery = mutation({
     address: v.string(),
     status: v.string(),
     proofUri: v.optional(v.string()),
+	proofOfDeliveryUri: v.optional(v.string()),
     customerPhone: v.optional(v.string()),
     userId: v.string(),
     customerEmail: v.optional(v.string()), // On ajoute l'email si dispo
@@ -48,5 +49,17 @@ export const saveDelivery = mutation({
         address: args.address,
       });
     }
+  },
+});
+
+/**
+ * Génère une URL temporaire et sécurisée pour permettre au mobile
+ * d'uploader un fichier directement dans le stockage Convex.
+ */
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Convex gère toute la sécurité et le routage ici
+    return await ctx.storage.generateUploadUrl();
   },
 });

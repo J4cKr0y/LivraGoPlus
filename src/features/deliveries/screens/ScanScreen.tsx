@@ -7,6 +7,7 @@ import {
   ActivityIndicator, 
   Alert, 
   Modal, 
+  Button, 
   TextInput 
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -131,7 +132,7 @@ export const ScanScreen = () => {
               <Text style={styles.loaderText}>Traitement en cours...</Text>
             </View>
           ) : (
-            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+            <TouchableOpacity testID="capture-button" style={styles.captureButton} onPress={takePicture}>
               <View style={styles.captureInnerButton} />
             </TouchableOpacity>
           )}

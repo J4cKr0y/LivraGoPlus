@@ -3,6 +3,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { IBackendService } from '../../../core/backend/IBackendService';
 import { Delivery } from '../domain/Delivery';
+import { compressDeliveryPhoto } from "../../../core/utils/imageUtils";
 // On importe les types générés par Convex
 import { api } from "../../../../convex/_generated/api";
 
@@ -64,5 +65,43 @@ async getFuelPrice(zipCode: string, fuelType: string): Promise<number | null> {
   }
 }
 
+async uploadProofOfDelivery(localUri: string): Promise<string> {
+    try {
+      console.log("Préparation de la photo pour le Cloud...");
+
+      // 1. Compresser la photo (WebP ou JPEG selon le Feature Flag)
+      const compressedPhoto = await compressDeliveryPhoto(localUri);
+
+      // 2. Demander l'URL d'upload sécurisée à Convex
+      const uploadUrl = await this.client.mutation(api.deliveries.generateUploadUrl);
+
+      // 3. Convertir l'image locale en format binaire (Blob) pour le réseau
+      const imageResponse = await fetch(compressedPhoto.uri);
+      const blob = await imageResponse.blob();
+
+      // 4. Envoyer le fichier binaire à Convex
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": compressedPhoto.mimeType,
+        },
+        body: blob,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Échec de l'upload HTTP: ${uploadResponse.status}`);
+      }
+
+      // 5. Récupérer l'identifiant unique du fichier stocké
+      const { storageId } = await uploadResponse.json();
+      
+      console.log(`✅ Photo uploadée avec succès ! (Storage ID: ${storageId})`);
+      return storageId;
+
+    } catch (error) {
+      console.error("❌ Erreur lors de l'upload de la preuve :", error);
+      throw error;
+    }
+  }
   
 }

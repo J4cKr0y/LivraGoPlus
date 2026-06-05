@@ -7,4 +7,5 @@ export interface IBackendService {
   getRemoteDeliveries(): Promise<Delivery[]>;
   updateDeliveryStatus(id: string, status: string, proofUri?: string): Promise<void>;
   saveTourStats(stats: { savedKm: number, date: number }): Promise<void>;
+  uploadProofOfDelivery(localUri: string): Promise<string>;
 }
