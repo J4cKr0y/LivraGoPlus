@@ -19,6 +19,8 @@ export interface Delivery {
   
   // Pour le mode Offline-first
   syncStatus: SyncStatus; 
+  
+  proofOfDeliveryUri?: string;
 }
 
 // Factory function pour garantir qu'on crée toujours une livraison valide par défaut
