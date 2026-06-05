@@ -4,7 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ServiceProvider } from './src/core/di/ServiceContext';
 import { DeliveryListScreen } from './src/features/deliveries/screens/DeliveryListScreen';
 import { DeliveryMapScreen } from './src/features/deliveries/screens/DeliveryMapScreen';
-import { ScanScreen } from './src/features/deliveries/screens/ScanScreen'; // 1. Importation de l'écran
+import { ScanScreen } from './src/features/deliveries/screens/ScanScreen';
+import { DeliveryDetailScreen } from './src/features/deliveries/screens/DeliveryDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -13,12 +14,19 @@ export default function App() {
     <ServiceProvider>
       <NavigationContainer>
         <Stack.Navigator initialRouteName="DeliveryList">
-          
+
           {/* Liste des livraisons */}
           <Stack.Screen 
             name="DeliveryList" 
             component={DeliveryListScreen} 
             options={{ title: 'Mes Livraisons' }}
+          />
+
+          {/* Validation */}
+          <Stack.Screen 
+            name="DeliveryDetail" 
+            component={DeliveryDetailScreen} 
+            options={{ title: 'Valider la livraison' }}
           />
 
           {/* Détails de livraison */}
@@ -27,8 +35,8 @@ export default function App() {
             component={DeliveryMapScreen} 
             options={{ title: 'Détails de livraison' }}
           />
-
-          {/* 2. Ajout de l'écran de Scan au Navigator */}
+          
+          {/* écran de Scan */}
           <Stack.Screen 
             name="Scan" 
             component={ScanScreen} 
