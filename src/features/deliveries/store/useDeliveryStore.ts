@@ -2,25 +2,26 @@
 import { create } from 'zustand';
 import NetInfo from '@react-native-community/netinfo';
 import { Delivery } from '../domain/Delivery';
+import * as Location from 'expo-location';
+import { RouteOptimizationService } from '../../../core/services/RouteOptimizationService';
 
 interface DeliveryState {
   deliveries: Delivery[];
   isLoading: boolean;
-  // --- DONNÉES DE STATS ---
   stats: {
     savedKm: number;
   };
   
   fetchDeliveries: (deliveryService: any) => Promise<void>;
-  validateDelivery: (deliveryService: any, id: string, proofUri: string) => Promise<void>;
-
-  setOptimizedDeliveries: (optimizedList: Delivery[], savedKm: number) => void; 
+  validateDelivery: (deliveryService: any, id: string, localProofUri?: string, backendService?: any) => Promise<void>;
+  setOptimizedDeliveries: (optimizedList: Delivery[], savedKm: number) => void;
+  optimizeMyRoute: () => Promise<void>;
 }
 
-export const useDeliveryStore = create<DeliveryState>((set) => ({
+export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   deliveries: [],
   isLoading: false,
-  stats: { savedKm: 0 }, // Initialisation à 0
+  stats: { savedKm: 0 },
 
   fetchDeliveries: async (deliveryService) => {
     set({ isLoading: true });
@@ -28,11 +29,8 @@ export const useDeliveryStore = create<DeliveryState>((set) => ({
     set({ deliveries: data, isLoading: false });
   },
 
-  validateDelivery: async (id: string, localProofUri?: string) => {
+  validateDelivery: async (deliveryService, id: string, localProofUri?: string, backendService?: any) => {
     const { deliveries } = get();
-    // (Ici on suppose que tu récupères tes services depuis un contexte ou qu'ils sont injectés)
-    const { deliveryService, backendService } = useServices(); 
-
     const delivery = deliveries.find(d => d.id === id);
     if (!delivery) return;
 
@@ -40,35 +38,32 @@ export const useDeliveryStore = create<DeliveryState>((set) => ({
     const updatedDelivery = { 
       ...delivery, 
       status: 'DELIVERED' as const, 
-      proofOfDeliveryUri: localProofUri // Au début, c'est une URI locale (file://...)
+      proofOfDeliveryUri: localProofUri 
     };
 
-    // On sauvegarde tout de suite dans SQLite pour ne rien perdre
+    // On sauvegarde tout de suite dans SQLite
     await deliveryService.validateDelivery(id, localProofUri);
 
-    // On met à jour l'interface instantanément pour le livreur
+    // On met à jour l'interface instantanément
     set((state) => ({
       deliveries: state.deliveries.map(d => d.id === id ? updatedDelivery : d)
     }));
 
     // --- 2. TENTATIVE DE SYNCHRONISATION CLOUD (En arrière-plan) ---
+    if (!backendService) return;
+
     try {
       const net = await NetInfo.fetch();
       if (net.isConnected) {
         let finalProofUri = localProofUri;
 
-        // Étape A : Si on a une photo locale, on l'upload d'abord sur Convex
         if (localProofUri && localProofUri.startsWith('file://')) {
           console.log("Réseau détecté, upload de la photo en cours...");
-          
-          // C'est ici que ton code de compression et d'upload entre en jeu !
           const storageId = await backendService.uploadProofOfDelivery(localProofUri);
           finalProofUri = storageId;
 
-          // On met à jour SQLite pour remplacer l'URI locale par le Storage ID de Convex
           await deliveryService.updateProofUri(id, storageId);
 
-          // On met à jour l'état Zustand avec l'ID final
           set((state) => ({
             deliveries: state.deliveries.map(d => 
               d.id === id ? { ...d, proofOfDeliveryUri: storageId } : d
@@ -76,20 +71,52 @@ export const useDeliveryStore = create<DeliveryState>((set) => ({
           }));
         }
 
-        // Étape B : On pousse le statut complet (avec l'ID de la photo) vers la base de données Convex
         const cloudDelivery = { ...updatedDelivery, proofOfDeliveryUri: finalProofUri };
         await backendService.updateDeliveryStatus(cloudDelivery);
-
-        // Étape C : On marque la livraison comme synchronisée dans SQLite
         await deliveryService.markAsSynced(id);
       }
     } catch (error) {
-      console.warn("Réseau instable, l'upload se fera plus tard via la boucle de rattrapage.", error);
-      // On ne bloque pas l'application ! Le livreur a déjà vu que c'était validé à l'étape 1.
+      console.warn("Réseau instable, l'upload se fera plus tard.", error);
     }
   },
 
-  // On sauvegarde la nouvelle liste et les stats
+  optimizeMyRoute: async () => {
+    try {
+      console.log("📍 Demande de position GPS...");
+      
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn("❌ Permission GPS refusée par l'utilisateur.");
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High
+      });
+      
+      const currentCoord = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      };
+
+      const { deliveries } = get();
+      const pendingDeliveries = deliveries.filter(d => d.status === 'PENDING');
+      const completedDeliveries = deliveries.filter(d => d.status !== 'PENDING');
+
+      console.log("🧮 Calcul du trajet optimal en cours...");
+      const optimizer = new RouteOptimizationService();
+      const optimizedPending = optimizer.optimizeRoute(currentCoord, pendingDeliveries);
+
+      set({ 
+        deliveries: [...optimizedPending, ...completedDeliveries] 
+      });
+      
+      console.log("✅ Tournée optimisée avec succès !");
+    } catch (error) {
+      console.error("❌ Erreur lors de l'optimisation :", error);
+    }
+  },
+
   setOptimizedDeliveries: (optimizedList, savedKm) => {
     set({ deliveries: optimizedList, stats: { savedKm } });
   }

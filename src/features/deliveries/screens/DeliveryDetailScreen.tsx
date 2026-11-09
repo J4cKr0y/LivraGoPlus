@@ -66,7 +66,7 @@ export const DeliveryDetailScreen = () => {
       return;
     }
 
-    const phoneNumber = delivery?.customer?.phone;
+    const phoneNumber = delivery?.phoneNumber;
     if (!phoneNumber) {
       Alert.alert('Erreur', 'Aucun numéro de téléphone disponible pour ce client.');
       return;

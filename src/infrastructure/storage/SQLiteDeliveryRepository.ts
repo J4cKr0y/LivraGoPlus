@@ -1,17 +1,28 @@
 import * as SQLite from 'expo-sqlite';
 import { IDeliveryRepository } from '../../core/interfaces/IDeliveryRepository';
 import { Delivery } from '../../core/domain/Delivery';
+import { getDbEncryptionKey } from './Security';
 
 export class SQLiteDeliveryRepository implements IDeliveryRepository {
-  private db: SQLite.SQLiteDatabase;
+  private db: SQLite.SQLiteDatabase | null = null;
+  private initPromise: Promise<void>;
 
   constructor() {
-    this.db = SQLite.openDatabaseSync('livragoplus.db');
-    this.init();
+    this.initPromise = this.initDatabase();
   }
 
-  private init() {
-    this.db.execSync(`
+  private async initDatabase() {
+    const key = await getDbEncryptionKey();
+    // Ouverture sécurisée avec le mot de passe récupéré
+    this.db = SQLite.openDatabaseSync('livragoplus.db', {
+      password: key 
+    });
+    
+    this.initTables();
+  }
+
+  private initTables() {
+    this.db?.execSync(`
       CREATE TABLE IF NOT EXISTS deliveries (
         id TEXT PRIMARY KEY NOT NULL,
         fullAddress TEXT,
@@ -25,12 +36,18 @@ export class SQLiteDeliveryRepository implements IDeliveryRepository {
     `);
   }
 
+  // S'assure que la DB est prête avant toute opération
+  private async ensureDb(): Promise<SQLite.SQLiteDatabase> {
+    await this.initPromise;
+    if (!this.db) throw new Error("Database not initialized");
+    return this.db;
+  }
+
   async save(delivery: Delivery): Promise<void> {
-    // Si la livraison provient d'une validation locale (hors-ligne), 
-    // on s'assure de propager son état 'isSynced' (qui sera fourni par l'objet Delivery ou forcé à 0 lors d'une modification locale)
+    const db = await this.ensureDb();
     const isSyncedValue = delivery.isSynced === false ? 0 : 1;
 
-    await this.db.runAsync(
+    await db.runAsync(
       'INSERT OR REPLACE INTO deliveries (id, fullAddress, latitude, longitude, status, proofOfDeliveryUri, isSynced, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [
         delivery.id,
@@ -46,7 +63,9 @@ export class SQLiteDeliveryRepository implements IDeliveryRepository {
   }
 
   async getAll(): Promise<Delivery[]> {
-    const rows = await this.db.getAllAsync<any>('SELECT * FROM deliveries ORDER BY createdAt DESC');
+    const db = await this.ensureDb();
+    const rows = await db.getAllAsync<any>('SELECT * FROM deliveries ORDER BY createdAt DESC');
+    
     return rows.map(row => ({
       id: row.id,
       status: row.status,
@@ -60,7 +79,9 @@ export class SQLiteDeliveryRepository implements IDeliveryRepository {
   }
 
   async getById(id: string): Promise<Delivery | null> {
-    const row = await this.db.getFirstAsync<any>('SELECT * FROM deliveries WHERE id = ?', [id]);
+    const db = await this.ensureDb();
+    const row = await db.getFirstAsync<any>('SELECT * FROM deliveries WHERE id = ?', [id]);
+    
     if (!row) return null;
     
     return {
@@ -75,10 +96,10 @@ export class SQLiteDeliveryRepository implements IDeliveryRepository {
     };
   }
 
-  // Récupère les modifications locales non envoyées au Cloud
   async getUnsyncedDeliveries(): Promise<Delivery[]> {
-    // 0 = false en SQLite
-    const rows = await this.db.getAllAsync<any>('SELECT * FROM deliveries WHERE isSynced = 0');
+    const db = await this.ensureDb();
+    const rows = await db.getAllAsync<any>('SELECT * FROM deliveries WHERE isSynced = 0');
+    
     return rows.map(row => ({
       id: row.id,
       status: row.status,
@@ -91,17 +112,17 @@ export class SQLiteDeliveryRepository implements IDeliveryRepository {
     }));
   }
 
-  // Met à jour l'URI de la photo locale avec le Storage ID de Convex
   async updateProofUri(id: string, proofUri: string): Promise<void> {
-    await this.db.runAsync(
+    const db = await this.ensureDb();
+    await db.runAsync(
       'UPDATE deliveries SET proofOfDeliveryUri = ? WHERE id = ?',
       [proofUri, id]
     );
   }
 
-  // Marque la livraison comme étant correctement synchronisée sur Convex
   async markAsSynced(id: string): Promise<void> {
-    await this.db.runAsync(
+    const db = await this.ensureDb();
+    await db.runAsync(
       'UPDATE deliveries SET isSynced = 1 WHERE id = ?',
       [id]
     );

@@ -1,3 +1,9 @@
+// --- CE MOCK DOIT ÊTRE EN PREMIER ---
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: jest.fn(() => Promise.resolve({ isConnected: true })),
+  addEventListener: jest.fn(() => jest.fn()),
+}));
+
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { DeliveryListScreen } from '../DeliveryListScreen';

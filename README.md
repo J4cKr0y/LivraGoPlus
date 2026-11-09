@@ -9,23 +9,23 @@ Elle simplifie la gestion des tournées grâce à l'OCR, l'optimisation de traje
 
 L'objectif est d'offrir un outil fiable qui fonctionne même dans les zones blanches (zones sans réseau) :
 
-- **Scan & Go** : Extraction d'adresses via OCR avec support de saisie manuelle et galerie.
-- **Offline-First** : Persistance locale via SQLite (Expo-SQLite) avec synchronisation automatique en arrière-plan.
-- **Optimisation** : Algorithmes de tri de tournée pour réduire les kilomètres parcourus.
-- **Cloud Sync** : Sauvegarde sécurisée des preuves de livraison (photos) sur Convex.
-- **Proximité Intelligente** : Envoi automatique de SMS à l'approche de la destination.
+- **Scan & Go** : Extraction d'adresses via OCR (MLKit) avec support de saisie manuelle et galerie.
+- **Offline-First** : Persistance locale sécurisée via SQLite (`Expo-SQLite` + `expo-secure-store`) avec synchronisation asynchrone en arrière-plan.
+- **Optimisation de Tournée** : Algorithmes de tri et calculs de distance pour réduire les kilomètres parcourus.
+- **Cloud Sync (Batch & Unitaire)** : Synchronisation par lots optimisée vers Convex pour les données et le stockage des preuves de livraison (photos).
+- **Proximité Intelligente** : Envoi automatique de SMS et guidage GPS multi-applications (Waze, Google Maps, Apple Maps).
 
 ---
 
 ## 🏗️ Architecture & Principes
 
-Le projet suit une **Architecture Hexagonale (Ports & Adapters)** découpée par **Features**.
+Le projet suit une **Architecture Hexagonale (Ports & Adapters)** découplée par **Features** :
 
-- **Core (Domain/Services)** : Contient la logique métier pure, sans dépendance aux frameworks (React Native, Google, etc.).
-- **Infrastructure (Adapters)** : Implémentations concrètes des interfaces (OCR, Storage, Maps). Permet de changer de fournisseur facilement.
-- **Features** : Découpage par domaine fonctionnel (ex: deliveries, tracking).
-- **Synchronisation** : Moteur de rattrapage automatique (SyncService) réagissant aux changements de réseau.
-- **TDD (Chicago Style)** : Tests portés sur le comportement et l'état final, garantissant une robustesse maximale lors des refactorings.
+- **Core (Domain / Services / DI)** : Contient la logique métier pure et les contrats d'interfaces (`IBackendService`, `IDeliveryRepository`), totalement indépendants des frameworks.
+- **Infrastructure (Adapters)** : Implémentations techniques concrètes (SQLite, MLKit OCR, Expo Geocoding, BatchConvexBackendService). Permet de basculer d'une techno à une autre ou d'un mode unitaire à un mode batch de manière transparente.
+- **Features** : Découpage fonctionnel (gestion des livraisons, store Zustand, écrans).
+- **Synchronisation Offline-First** : Orchestrée par le `SyncService` et pilotée par l'état réseau (`NetInfo`), garantissant qu'aucune validation de livraison ne se perde en zone blanche.
+- **TDD (Test-Driven Development)** : Tests portés sur le comportement et l'état final (Jest & React Native Testing Library), garantissant une robustesse maximale.
 
 ---
 
@@ -34,31 +34,36 @@ Le projet suit une **Architecture Hexagonale (Ports & Adapters)** découpée par
 | Technologie | Usage |
 |------------|-------|
 | React Native / Expo | Framework Cross-platform |
-| TypeScript | Typage statique pour la sécurité logicielle |
+| TypeScript | Typage statique strict |
 | Jest / Testing Library | Tests unitaires et d'intégration (TDD) |
-| SQLite (Expo) | Persistance Offline et cache local |
-| Convex | Backend Cloud (DB, Auth, Storage) |
+| SQLite (Expo) & SecureStore | Persistance chiffrée Offline et cache local |
+| Convex (HTTP Router) | Backend Cloud (DB, Endpoints de Synchro par lots, Storage) |
 | React Navigation | Gestion des flux d'écrans |
-| Zustand / TanStack Query | Gestion d'état et cache (prévu) |
+| Zustand | Gestion d'état global et UI Optimiste |
 
 ---
 
 ## 📂 Structure du code
 
-```
+```text
 src/
 ├── core/               # Le Cœur (Logique métier pure)
+│   ├── backend/        # Contrat IBackendService
 │   ├── domain/         # Entités (Delivery, Address)
-│   ├── interfaces/     # Contrats (IOcrService, IDeliveryRepository)
-│   ├── services/       # Use Cases (DeliveryService)
-│   └── di/             # Injection de dépendances
+│   ├── interfaces/     # Contrats de stockage et services externes
+│   ├── routing/        # Moteurs d'optimisation de tournée
+│   ├── services/       # Use Cases (DeliveryService, SyncService)
+│   └── di/             # Injection de dépendances (AppDependencies.ts)
 ├── infrastructure/     # Implémentations techniques (Adapters)
-│   ├── storage/        # SQLite, InMemory
-│   └── ocr/            # MLKit, FakeOCR
-├── features/           # Écrans et composants par fonctionnalité
-│   └── deliveries/     # Gestion des livraisons
-└── navigation/         # Configuration des routes
-└── convex/             # Backend Convex (mutations & actions)
+│   ├── storage/        # SQLiteDeliveryRepository & Security
+│   ├── ocr/            # MLKit, FakeOCR
+│   ├── map/            # ReactNativeMapService
+│   ├── geocoding/      # ExpoGeocodingService
+│   └── backend/        # BatchConvexBackendService
+├── features/           # Écrans, stores et composants par fonctionnalité
+│   └── deliveries/     # Écrans (List, Detail, Scan, Map) & useDeliveryStore
+├── navigation/         # Configuration des routes (AppNavigator)
+└── convex/             # Backend Convex (schéma, mutations, routes de synchro batch)
 ```
 
 ---
@@ -74,28 +79,19 @@ npm install
 ### 2. Lancer les tests (TDD)
 
 ```bash
-npm test          # Lancer tous les tests
-npm test --watch  # Mode développement
+npm test          # Lancer toute la suite de tests (SQLite, Services, Écrans)
+npm test --watch  # Mode développement interactif
 ```
 
 ---
 
 ## 🗺️ Roadmap de développement
 
-- [x] Initialisation de l'architecture Core/Domain.
-- [x] Implémentation du Scan OCR et flux de validation.
-- [x] Gestion d'état avec Zustand et Optimistic UI.
-- [x] Persistance SQLite Offline-First.
-- [x] Moteur de synchronisation arrière-plan (SyncService).
-- [x] Intégration du Storage Convex pour les preuves de livraison.
-- [ ] Cartographie avancée (Mapbox/Google Maps).
-- [ ] Géolocalisation en arrière-plan.
-
----
-
-## 📝 Note de développement
-
-Le projet a toujours privilégié une implémentation **"Fake"** ou **"In-Memory"** testée avant de passer à l'implémentation native finale. 
-Le projet suit une stratégie Offline-First stricte : toute donnée validée est immédiatement persistée en local. 
-La synchronisation avec le cloud (Convex) est traitée de manière asynchrone pour garantir une expérience utilisateur fluide, même en mode dégradé.
-
+- [x] Initialisation de l'architecture Core/Domain & Ports/Adapters.
+- [x] Implémentation du Scan OCR et flux de validation (Plan A, B, C).
+- [x] Gestion d'état avec Zustand et UI Optimiste.
+- [x] Persistance SQLite Offline-First chiffrée.
+- [x] Moteur de synchronisation arrière-plan (`SyncService` & Batch Sync).
+- [x] Intégration du Storage et des routes HTTP Convex.
+- [x] Suite de tests unitaires et d'intégration entièrement au vert.
+- [ ] Cartographie avancée et géolocalisation en arrière-plan.

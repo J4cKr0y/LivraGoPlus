@@ -1,3 +1,13 @@
+// --- CES MOCKS DOIVENT ÊTRE EN PREMIER ---
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(() => Promise.resolve('mocked-encryption-key')),
+  setItemAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(() => 'mocked-uuid'),
+}));
+
 import { SQLiteDeliveryRepository } from '../SQLiteDeliveryRepository';
 import * as SQLite from 'expo-sqlite';
 import { Delivery } from '../../../core/domain/Delivery';
@@ -35,7 +45,8 @@ describe('SQLiteDeliveryRepository', () => {
       id: 'del-1',
       status: 'DELIVERED',
       address: { fullText: '123 Rue Fausse', coordinates: { latitude: 48.8, longitude: 2.3 } },
-      proofOfDeliveryUri: 'file://proof.jpg'
+      proofOfDeliveryUri: 'file://proof.jpg',
+      isSynced: true 
     };
 
     await repository.save(delivery);
@@ -49,20 +60,21 @@ describe('SQLiteDeliveryRepository', () => {
         2.3, 
         'DELIVERED', 
         'file://proof.jpg', 
+        1, // isSynced (1 pour true)
         expect.any(String) // createdAt (Date ISO)
       ]
     );
   });
 
-  it('devrait récupérer une livraison par son ID', async () => {
-    // On simule ce que la base de données renvoie
+  it('devrait récupérer une livraison par son ID', async () => { 
     mockDb.getFirstAsync.mockResolvedValue({
       id: 'del-2',
       fullAddress: 'Avenue des Champs',
       latitude: 48.87,
       longitude: 2.30,
       status: 'PENDING',
-      proofOfDeliveryUri: null
+      proofOfDeliveryUri: null,
+      isSynced: 1
     });
 
     const result = await repository.getById('del-2');
@@ -75,7 +87,8 @@ describe('SQLiteDeliveryRepository', () => {
         fullText: 'Avenue des Champs',
         coordinates: { latitude: 48.87, longitude: 2.30 }
       }, 
-	  proofOfDeliveryUri: null
+      proofOfDeliveryUri: null,
+      isSynced: true
     });
   });
 });

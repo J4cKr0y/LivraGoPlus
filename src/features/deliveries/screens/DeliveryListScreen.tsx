@@ -1,4 +1,4 @@
-// src/features/deliveries/screensDeliveryListScreen.tsx
+// src/features/deliveries/screens/DeliveryListScreen.tsx
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -8,15 +8,14 @@ import {
   FlatList, 
   TouchableOpacity, 
   ActivityIndicator, 
-  Alert 
+  Alert,
+  Platform
 } from 'react-native';
+import { useDeliveryStore } from '../store/useDeliveryStore';
 import * as Location from 'expo-location';
 import { useServices } from '../../../core/di/ServiceContext';
-import { Delivery } from '../../deliveries/domain/Delivery';
+import { Delivery } from '../../../core/domain/Delivery';
 import { calculateTotalRouteDistance } from '../../../core/utils/distanceUtils';
-
-// --- ZUSTAND ---
-import { useDeliveryStore } from '../store/useDeliveryStore';
 
 export const DeliveryListScreen = ({ navigation }: any) => {
   const { deliveryService, routeOptimizer } = useServices(); 
@@ -89,7 +88,7 @@ export const DeliveryListScreen = ({ navigation }: any) => {
 
       <TouchableOpacity 
         style={styles.mapIconButton}
-        onPress={() => navigation.navigate('DeliveryMap', { id: item.id })}
+        onPress={() => navigation.navigate('DeliveryMap', { deliveryId: item.id })}
       >
         <Text style={styles.mapIconText}>🗺️</Text>
       </TouchableOpacity>
@@ -118,23 +117,9 @@ export const DeliveryListScreen = ({ navigation }: any) => {
             <Text style={styles.optimizeButtonText}>📍 OPTIMISER MA TOURNÉE</Text>
           )}
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={[styles.optimizeButton, isOptimizing && styles.optimizeButtonDisabled]} 
-          onPress={handleOptimizeRoute}
-          disabled={isOptimizing}
-        >
-          {isOptimizing ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <Text style={styles.optimizeButtonText}>📍 OPTIMISER MA TOURNÉE</Text>
-          )}
-        </TouchableOpacity>
 
         {/* --- LE PETIT ENCART DE STATS --- */}
-        {stats.savedKm > 0 && (
+        {stats && stats.savedKm > 0 && (
           <View style={styles.statsBanner}>
             <Text style={styles.statsText}>
               🌿 Optimisation réussie : {stats.savedKm} km économisés !
@@ -207,7 +192,7 @@ const styles = StyleSheet.create({
   mapIconButton: {
     padding: 10,
     backgroundColor: '#E8EDF2',
-    borderRadius: 8,
+    borderRadius: { ios: 8, android: 8 }[Platform.OS] || 8, // simple fix ou nombre pur
     marginLeft: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -234,7 +219,7 @@ const styles = StyleSheet.create({
   fabIcon: { color: '#FFF', fontSize: 30, fontWeight: 'bold' },
   statsBanner: {
     marginTop: 10,
-    backgroundColor: '#E8F5E9', // Vert clair
+    backgroundColor: '#E8F5E9',
     padding: 10,
     borderRadius: 8,
     alignItems: 'center',
