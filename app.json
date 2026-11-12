@@ -7,14 +7,16 @@
     "icon": "./assets/images/icon.png",
     "scheme": "livragoplus",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true, 
+      "supportsTablet": true,
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["waze", "googlemaps", "comgooglemaps"]
+        "LSApplicationQueriesSchemes": [
+          "waze",
+          "googlemaps",
+          "comgooglemaps"
+        ]
       }
     },
-    
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -22,7 +24,6 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.j4ckr0y.LivraGoPlus"
     },
@@ -45,7 +46,11 @@
         }
       ],
       "expo-web-browser",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

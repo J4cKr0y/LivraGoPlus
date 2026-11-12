@@ -34,12 +34,9 @@ export const ScanScreen = () => {
       await Location.requestForegroundPermissionsAsync();
 
       // 2. Ensuite, on vérifie la caméra
-      // Si on n'a pas la permission, on la demande et on attend la réponse
       if (!cameraPermission || !cameraPermission.granted) {
-        // requestCameraPermission retourne le nouveau statut !
         const newCameraStatus = await requestCameraPermission();
         
-        // Optionnel : si on veut gérer le cas où il refuse la caméra ici
         if (!newCameraStatus.granted) {
           console.log("L'utilisateur a refusé la caméra.");
         }
@@ -66,14 +63,12 @@ export const ScanScreen = () => {
   const processImage = async (uri: string) => {
     setIsProcessing(true);
     try {
-      // On utilise la nouvelle méthode extractAddressTextFromImage de ton service
       const text = await deliveryService.extractAddressTextFromImage(uri);
       
       if (text) {
         await deliveryService.saveTypedAddress(text);
         navigation.goBack();
       } else {
-        // Si l'OCR ne trouve rien, on propose les alternatives
         setIsProcessing(false);
         setShowErrorModal(true);
       }
@@ -124,20 +119,22 @@ export const ScanScreen = () => {
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing="back" ref={cameraRef}>
-        <View style={styles.overlay}>
-          {isProcessing ? (
-            <View style={styles.loaderContainer}>
-              <ActivityIndicator size="large" color="#FF8C00" />
-              <Text style={styles.loaderText}>Traitement en cours...</Text>
-            </View>
-          ) : (
-            <TouchableOpacity testID="capture-button" style={styles.captureButton} onPress={takePicture}>
-              <View style={styles.captureInnerButton} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </CameraView>
+      {/* 1. La caméra doit être seule et sans enfant (imposé par le passage à expo-camera) */}
+      <CameraView style={styles.camera} facing="back" ref={cameraRef} />
+
+      {/* 2. L'overlay est un composant frère, positionné en absolu par-dessus */}
+      <View style={styles.overlay}>
+        {isProcessing ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#FF8C00" />
+            <Text style={styles.loaderText}>Traitement en cours...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity testID="capture-button" style={styles.captureButton} onPress={takePicture}>
+            <View style={styles.captureInnerButton} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Modal d'échec OCR : Propose Galerie ou Manuel */}
       <Modal visible={showErrorModal} transparent animationType="fade">
@@ -185,7 +182,15 @@ export const ScanScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   camera: { flex: 1 },
-  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  overlay: { 
+    position: 'absolute', // Indispensable pour s'afficher par-dessus la caméra
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
   loaderContainer: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 20, borderRadius: 10, alignItems: 'center' },
   loaderText: { color: '#fff', marginTop: 10 },
   captureButton: {
@@ -207,5 +212,6 @@ const styles = StyleSheet.create({
   manualTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 10, padding: 15, height: 100, textAlignVertical: 'top', marginBottom: 20 },
   submitButton: { backgroundColor: '#FF8C00', padding: 20, borderRadius: 10, alignItems: 'center', marginBottom: 10 },
-  submitButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
+  submitButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  text: { color: '#fff', textAlign: 'center', marginBottom: 20 }
 });
